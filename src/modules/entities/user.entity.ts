@@ -1,19 +1,24 @@
+import { IsOptional } from 'class-validator';
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
 @Entity()
 export class User {
-  @PrimaryGeneratedColumn('uuid') // Define um ID como UUID automaticamente gerado
-  id: string; // O tipo deve ser `string` e não `String` (boas práticas em TypeScript)
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-  @Column()
-  name: string;
-
-  @Column({ unique: true })
+  @Column({ type: 'varchar', unique: true })
   email: string;
+
+  @Column({ type: 'varchar', unique: true, nullable: true })
+  sub: string; // Este é o campo que armazenará o valor do 'sub' do JWT
+
+  @Column({ type: 'boolean', default: false })
+  isAdmin: boolean;
+
+  @Column({ type: 'varchar', nullable: true })
+  @IsOptional()
+  name?: string;
 
   @Column()
   password: string;
-
-  @Column({ default: false }) // Se isAdmin for boolean, defina um valor padrão
-  isAdmin: boolean;
 }

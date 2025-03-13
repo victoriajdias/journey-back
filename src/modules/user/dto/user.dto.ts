@@ -1,6 +1,12 @@
 // dto para user
 
-import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 export class UserDto {
   @IsOptional()
   @IsString()
@@ -19,5 +25,10 @@ export class UserDto {
   password: string;
 
   @IsNotEmpty()
+  @IsBoolean()
   isAdmin: boolean;
+
+  @IsOptional()
+  @IsString()
+  sub?: string;
 }
