@@ -1,7 +1,12 @@
 // dto para user
 
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
-export class CreateUserDto {
+import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+export class UserDto {
+  @IsOptional()
+  @IsString()
+  id?: string;
+
+  @IsOptional()
   @IsString()
   name?: string;
 
