@@ -1,89 +1,215 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+// import * as AWS from 'aws-sdk';
+// import {
+//   CognitoUserPool,
+//   CognitoUser,
+//   AuthenticationDetails,
+//   CognitoUserAttribute,
+// } from 'amazon-cognito-identity-js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
-import { UserDto } from './dto/user.dto';
-import { v4 as uuidv4 } from 'uuid'; // Caso queira gerar um sub temporário
+
+// Defina o UserPoolId e ClientId
+// const poolData = {
+//   UserPoolId: 'us-east-2_DgdFLYxCp',
+//   ClientId: '1bntc0f7f78vqf58hdkbrm50aj',
+// };
+
+// const userPool = new CognitoUserPool(poolData);
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User)
-    private userRepository: Repository<User>,
+    private readonly userRepository: Repository<User>,
   ) {}
 
-  // async createUser({ name, email, password }: UserDto): Promise<User> {
-  //   const user = this.userRepository.create({ name, email, password, sub: '' });
-  //   return this.userRepository.save(user);
-  // }
+  async login(username: string, password: string): Promise<any> {
+    // const userData = {
+    //   Username: username,
+    //   Pool: userPool,
+    // };
 
-  async findBySub(sub: string): Promise<User> {
-    const user = await this.userRepository.findOne({
-      where: { sub }, // Buscando pelo sub que foi salvo no banco de dados
+    // const cognitoUser = new CognitoUser(userData);
+    // const authenticationDetails = new AuthenticationDetails({
+    //   Username: username,
+    //   Password: password,
+    // });
+
+    return new Promise(async (resolve, reject) => {
+      // cognitoUser.authenticateUser(authenticationDetails, {
+      //   onSuccess: async (result) => {
+      //     const idToken = result.getIdToken().getJwtToken();
+      //     const payload = JSON.parse(atob(idToken.split('.')[1]));
+      //     const userSub = payload.sub;
+
+      try {
+        // 🔹 Busca o usuário no banco pelo email
+        const user = await this.userRepository.findOne({
+          where: { email: username },
+        });
+
+        // 🔹 Se não encontrar, retorna erro explícito
+        if (!user) {
+          return reject(new UnauthorizedException('Usuário não encontrado.'));
+        }
+
+        // 🔹 Se o campo isAdmin estiver indefinido, assume false
+        const isAdmin = user.isAdmin ?? false; // Se for undefined, assume false
+
+        // 🔹 Retorna os dados de login corretamente
+        resolve({
+          // token: idToken,
+          // sub: userSub,
+          isAdmin: isAdmin, // Retorna sempre true ou false, evitando erros
+        });
+      } catch (err) {
+        console.error('Erro ao consultar banco:', err);
+        return reject(
+          new UnauthorizedException('Erro ao consultar o banco de dados.'),
+        );
+      }
+      // },
+      // onFailure: (err) => {
+      //   return reject(
+      //     new UnauthorizedException(
+      //       err.message || 'Erro ao autenticar usuário',
+      //     ),
+      //   );
+      // },
+      // });
     });
-
-    if (!user) {
-      throw new Error('Usuário não encontrado');
-    }
-
-    return user;
   }
 
-  async saveUser(createUserDto: UserDto) {
-    const { email, password, sub } = createUserDto;
+  async register(
+    username: string,
+    password: string,
+    email: string,
+    isAdmin: boolean,
+  ): Promise<any> {
+    console.log('Username recebido:', username); // Verifique se o valor de username está sendo recebido
 
-    // Verificar se o email já existe no banco
-    const existingUser = await this.userRepository.findOne({
-      where: { email },
+    // const attributeList = [
+    //   new CognitoUserAttribute({
+    //     Name: 'email',
+    //     Value: email,
+    //   }),
+    // ];
+
+    return new Promise((resolve, reject) => {
+      // userPool.signUp(username, password, attributeList, [], (err, result) => {
+      //   if (err) {
+      //     if ('code' in err && err.code === 'UsernameExistsException') {
+      //       reject(new ConflictException('Este usuário já está registrado.'));
+      //     } else {
+      //       reject(
+      //         new UnauthorizedException(
+      //           err.message || 'Erro ao registrar usuário.',
+      //         ),
+      //       );
+      //     }
+      //   } else {
+      // O usuário foi registrado no Cognito, mas ainda não confirmado
+
+      // Agora vamos salvar o usuário no banco de dados
+      const newUser = this.userRepository.create({
+        email, // Salva o email do usuário
+        username, // Salva o username do usuário
+        password, // Atenção: Não é recomendado salvar a senha em texto plano
+        sub: null, // O "sub" será obtido após a confirmação do usuário
+        isAdmin: isAdmin,
+        confirmationCode: false, // O usuário ainda não está confirmado
+      });
+
+      this.userRepository
+        .save(newUser)
+        .then((user) => {
+          resolve({
+            message: 'Usuário registrado no banco de dados.',
+            user,
+          });
+        })
+        .catch((error) => {
+          console.error('Erro ao salvar no banco:', error);
+          reject(
+            new ConflictException(
+              'Erro ao salvar o usuário no banco de dados.',
+            ),
+          );
+        });
+      // }
+      // });
     });
-    if (existingUser) {
-      throw new Error('Este email já está registrado.');
-    }
+  }
 
-    // Usar o sub do Cognito, não o UUID gerado automaticamente
-    const newUser = this.userRepository.create({
-      email,
-      password,
-      sub, // Sub do Cognito
+  async confirmUser(username: string, confirmationCode: string): Promise<any> {
+    // const cognitoUser = new CognitoUser({
+    //   Username: username,
+    //   Pool: userPool,
+    // });
+
+    return new Promise((resolve, reject) => {
+      // cognitoUser.confirmRegistration(confirmationCode, true, (err, result) => {
+      //   if (err) {
+      //     reject(new UnauthorizedException('Erro ao confirmar o usuário.'));
+      //   } else {
+      // Após a confirmação, vamos obter a sessão do usuário e o idToken
+      // cognitoUser.getSession((err, session) => {
+      //   if (err) {
+      //     reject(
+      //       new UnauthorizedException('Erro ao obter sessão do Cognito.'),
+      //     );
+      //   } else {
+      //     const idToken = session.getIdToken().getJwtToken(); // Obtém o ID Token (JWT)
+      //     const payload = JSON.parse(atob(idToken.split('.')[1])); // Decodifica o payload do token
+      //     const sub = payload.sub; // O "sub" (identificador único do usuário) do payload
+
+      //     const email = payload.email; // Obtém o email do payload
+
+      // Agora podemos salvar o usuário no banco de dados
+      const newUser = this.userRepository.create({
+        email: username,
+        sub: null, // Antes era o sub do Cognito
+        password: 'NÃO ARMAZENAR SENHA EM TEXTO PLANO', // Atenção: Não armazene a senha em texto plano
+      });
+
+      this.userRepository
+        .save(newUser)
+        .then((user) => {
+          resolve({
+            message: 'Usuário confirmado e salvo no banco de dados.',
+            user,
+          });
+        })
+        .catch((error) => {
+          reject(
+            new ConflictException(
+              'Erro ao salvar o usuário no banco de dados.',
+            ),
+          );
+        });
+      //   }
+      // });
+      //   }
+      // });
     });
-
-    await this.userRepository.save(newUser);
-    return newUser;
   }
 
-  async isUserAdmin(userId: string): Promise<boolean> {
-    const user = await this.userRepository.findOne({ where: { sub: userId } });
-
-    if (!user) {
-      throw new Error('Usuário não encontrado');
-    }
-
-    return user.isAdmin;
-  }
-
-  async getUserProfile(userId: string): Promise<User> {
-    // Busca o usuário pelo ID e retorna os dados, incluindo isAdmin
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new Error('Usuário não encontrado');
-    }
-    return user; // Retorna o usuário, incluindo o campo isAdmin
-  }
-
-  async getAllUsers(): Promise<User[]> {
+  async listUsers(): Promise<User[]> {
     return this.userRepository.find();
   }
 
-  async getUserById(id: string): Promise<User> {
+  async updateUser(id: string, updateData: Partial<User>): Promise<User> {
+    await this.userRepository.update(id, updateData);
     return this.userRepository.findOne({ where: { id } });
   }
 
-  async updateUser(id: string, name: string, email: string): Promise<User> {
-    await this.userRepository.update(id, { name, email });
-    return this.getUserById(id);
-  }
-
-  async deleteUser(id: number): Promise<void> {
+  async deleteUser(id: string): Promise<void> {
     await this.userRepository.delete(id);
   }
 }

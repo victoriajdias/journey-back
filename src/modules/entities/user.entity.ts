@@ -10,9 +10,16 @@ export class User {
   email: string;
 
   @Column({ type: 'varchar', unique: true, nullable: true })
+  username: string;
+
+  @Column({ type: 'boolean', nullable: true })
+  @IsOptional()
+  confirmationCode?: boolean;
+
+  @Column({ type: 'varchar', nullable: true })
   sub: string; // Este é o campo que armazenará o valor do 'sub' do JWT
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ type: 'boolean' })
   isAdmin: boolean;
 
   @Column({ type: 'varchar', nullable: true })

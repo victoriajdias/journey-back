@@ -1,90 +1,66 @@
-// user.controller.ts
 import {
   Controller,
   Post,
-  Get,
+  Body,
   Put,
   Delete,
-  Body,
   Param,
-  Req,
-  UseGuards,
-  UnauthorizedException, // Importando UseGuards
+  Get,
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { UserDto } from './dto/user.dto';
-import { JwtAuthGuard } from 'src/jwt-auth-guard';
 import { User } from '../entities/user.entity';
 
-@Controller('users')
+@Controller('auth')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Post('save')
-  @UseGuards(JwtAuthGuard) // Garante que apenas admins podem salvar
-  async saveUser(@Req() req, @Body() createUserDto: UserDto) {
-    const { email } = createUserDto; // Agora pega o email corretamente
-
-    // 🔹 Verifica se o usuário que está cadastrando é admin
-    const isAdmin = await this.userService.isUserAdmin(req.user.sub);
-    if (!isAdmin) {
-      throw new UnauthorizedException(
-        'Apenas administradores podem cadastrar usuários.',
-      );
-    }
-
-    // 🔹 Criar usuário no banco usando DTO
-    const user = await this.userService.saveUser(createUserDto);
-
-    return { message: 'Usuário salvo com sucesso!', user };
+  @Post('login')
+  async login(@Body() body: { username: string; password: string }) {
+    const { username, password } = body;
+    const loginResult = await this.userService.login(username, password);
+    return loginResult; // Retorna o token e o sub
   }
 
-  @Get('check-admin')
-  @UseGuards(JwtAuthGuard)
-  async checkIfAdmin(@Req() req) {
-    console.log('Requisição Recebida:', req.headers); // Logando os cabeçalhos da requisição
-    console.log('Usuário no Payload do Token:', req.user); // Logando o usuário decodificado
-
-    // Obter o ID do usuário do payload do token
-    const userId = req.user.sub;
-    console.log('ID do Usuário:', userId);
-
-    // Verificar se o usuário é admin consultando o banco
-    const isAdmin = await this.userService.isUserAdmin(userId);
-    console.log('Usuário é Admin?', isAdmin); // Logando o status de admin do usuário
-
-    return { isAdmin };
+  @Post('register')
+  async register(
+    @Body() body: { email: string; password: string; isAdmin: boolean },
+  ) {
+    const { email, password, isAdmin } = body;
+    const result = await this.userService.register(
+      email,
+      password,
+      email,
+      isAdmin,
+    );
+    return result; // Retorna uma mensagem de sucesso e os dados do usuário
   }
 
-  @Get('profile')
-  @UseGuards(JwtAuthGuard) // Protegendo a rota com o guard
-  async getUserProfile(@Req() req) {
-    const userId = req.user.id; // O user deve estar no req, se o token for válido
-    return this.userService.getUserProfile(userId);
-  }
-
-  @Get(':sub')
-  async getUserBySub(@Param('sub') sub: string): Promise<User> {
-    return this.userService.findBySub(sub); // Chamando a função para encontrar o usuário pelo sub
+  @Post('confirm')
+  async confirm(@Body() body: { username: string; confirmationCode: string }) {
+    const { username, confirmationCode } = body;
+    const result = await this.userService.confirmUser(
+      username,
+      confirmationCode,
+    );
+    return result; // Retorna uma mensagem de sucesso ou de erro
   }
 
   @Get()
-  findAll() {
-    return this.userService.getAllUsers();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.userService.getUserById(id);
+  async listUsers(): Promise<User[]> {
+    return this.userService.listUsers();
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() body: UserDto) {
-    return this.userService.updateUser(id, body.name, body.email);
+  async updateUser(
+    @Param('id') id: string,
+    @Body() updateData: Partial<User>,
+  ): Promise<User> {
+    return this.userService.updateUser(id, updateData);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: number) {
-    return this.userService.deleteUser(id);
+  async deleteUser(@Param('id') id: string): Promise<{ message: string }> {
+    await this.userService.deleteUser(id);
+    return { message: 'Usuário excluído com sucesso' };
   }
 }

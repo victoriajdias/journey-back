@@ -31,4 +31,12 @@ export class UserDto {
   @IsOptional()
   @IsString()
   sub?: string;
+
+  @IsOptional()
+  @IsString()
+  confirmationCode?: string;
+
+  @IsOptional()
+  @IsString()
+  username?: string;
 }
